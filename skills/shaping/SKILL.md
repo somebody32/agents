@@ -1,4 +1,5 @@
 ---
+name: shaping
 description: Use when planning features, designing changes, or scoping work before implementation. Use when user says plan, design, think through, shape, or how should we approach. Use before building anything non-trivial in a brownfield codebase.
 ---
 
