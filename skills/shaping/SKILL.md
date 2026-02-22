@@ -27,6 +27,8 @@ Read the codebase silently before saying anything. Understand:
 
 You may discover the request is already partially solved. Say so.
 
+You may also discover existing patterns that are wrong or fragile. Flag them — don't silently replicate them.
+
 Do not summarize your reading. Do not propose anything yet. Just build context.
 
 ### Phase 2: Problem
@@ -162,3 +164,4 @@ Spike when the unknown would change which option you pick. Don't spike things yo
 | 10 questions in one message | One decision at a time, depth-first |
 | Deciding everything unilaterally | Present options, wait for user decision |
 | Shaping a trivial task | "I'd rename the method and update 2 call sites. Good?" |
+| Replicating existing patterns without evaluating correctness | "I see 10 tests mocking X. Do those mocks match reality? Let me verify against the real code." |
