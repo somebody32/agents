@@ -1,6 +1,6 @@
 ---
 name: systematic-debugging
-description: ALWAYS read before debugging any bug, test failure, or unexpected behavior. Use before reading source code to understand a problem. Use before proposing any fix.
+description: ALWAYS read before debugging any bug, test failure, or unexpected behavior. Use before reading source code to understand a problem. Use before proposing any fix. Use when investigating how existing code actually behaves at runtime. Use when modifying code you haven't run yet.
 ---
 
 # Systematic Debugging
