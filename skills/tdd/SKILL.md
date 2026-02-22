@@ -17,6 +17,8 @@ description: Use when implementing features, fixing bugs (including P0 hotfixes 
 NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
 ```
 
+**Production code only.** Throwaway debug scripts, reproduction scripts, logging instrumentation, and temporary investigation code are NOT production code. Don't write tests for them — they exist to be deleted.
+
 Write code before the test? Delete it. Start over.
 
 **No exceptions:**
