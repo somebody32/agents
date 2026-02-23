@@ -52,7 +52,16 @@ Write down requirements as a numbered list. Requirements describe outcomes and c
 
 Keep going until you've walked every branch. Don't stop after 2 questions because it "feels like enough." But don't ask questions you can answer from the code yourself.
 
-The output is a requirements list you both agree on.
+**Define the acceptance proof.** Before moving to options, answer: "How will we know this works?" The answer must be observable behavior, not "tests pass":
+
+- ✅ "Thinking indicator appears in chat when agent calls queryData" (observable)
+- ❌ "All unit tests pass" (proves nothing about runtime)
+- ✅ "POST /api/templates returns 201 and GET /api/templates lists it" (verifiable)
+- ❌ "Code looks correct" (opinion, not proof)
+
+If you can't verify it yourself, say what the user should check: "I can't run the frontend. After deploy, open chat, ask a data question, confirm you see the spinner."
+
+The output is a requirements list + acceptance proof you both agree on.
 
 ### Phase 3: Options
 
@@ -114,6 +123,8 @@ Not every task needs full shaping.
 | Design decisions needed, 3-10 files | Full phases. Requirements list + options table. |
 | Architectural, > 10 files, multi-system | Full phases + written plan document + spikes for unknowns. |
 
+**Verification never scales down.** Even for trivial tasks, state what "done" looks like and how to verify it. "I'll rename the method, update 2 call sites, and run the existing tests. If you have a page that uses this, reload it to confirm." One sentence is enough.
+
 When the user says "just do it" or the task is genuinely trivial, don't force process. Say what you'd do and ask for a thumbs up.
 
 ## The Interview
@@ -158,6 +169,8 @@ Spike when the unknown would change which option you pick. Don't spike things yo
 
 | Anti-pattern | Fix |
 |---|---|
+| "Done" defined as "tests pass" | Name observable behavior: what does the user see/get? |
+| Can't verify but doesn't say so | "I can't run the app. After deploy, check X by doing Y." |
 | Requirements that are implementations ("use PostgreSQL") | Rewrite as outcome ("data persists across restarts") |
 | Single option presented as "the obvious approach" | Explore at least one alternative, even if to explain why it's worse |
 | Horizontal slicing ("Phase 1: database") | Each slice must have visible UI that can be demoed |
