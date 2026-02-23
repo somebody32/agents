@@ -119,11 +119,11 @@ Not every task needs full shaping.
 
 | Signal | Response |
 |--------|----------|
-| Clear approach, < 3 files touched | Skip to Phase 3-4 inline. Quick options + go. |
-| Design decisions needed, 3-10 files | Full phases. Requirements list + options table. |
+| Clear approach, < 3 files touched | State what "done" looks like + quick options + go. |
+| Design decisions needed, 3-10 files | Full phases. Requirements list + acceptance proof + options table. |
 | Architectural, > 10 files, multi-system | Full phases + written plan document + spikes for unknowns. |
 
-**Verification never scales down.** Even for trivial tasks, state what "done" looks like and how to verify it. "I'll rename the method, update 2 call sites, and run the existing tests. If you have a page that uses this, reload it to confirm." One sentence is enough.
+**Verification never scales down.** At every scale, state what "done" looks like before building. One sentence is enough: "I'll rename the method, update 2 call sites, and run the existing tests. If you have a page that uses this, reload it to confirm."
 
 When the user says "just do it" or the task is genuinely trivial, don't force process. Say what you'd do and ask for a thumbs up.
 
@@ -164,6 +164,26 @@ When an option has a flagged unknown (⚠️), you may need a spike: a focused i
 A spike is NOT implementation. It's reading code, checking APIs, writing throwaway scripts to verify assumptions. The output is knowledge: "yes, ActionText supports cloning with `record.dup`" or "no, the attachment system doesn't support cross-record references."
 
 Spike when the unknown would change which option you pick. Don't spike things you'll figure out during implementation.
+
+## Completion
+
+When you finish implementation, your final message MUST include a **Verification** section. This is mandatory at every scale — from one-line changes to architectural work.
+
+Format:
+```
+### Verification
+- [automated] All 10 tests pass, covering [specific behaviors]
+- [manual] Open /settings, toggle the feature flag, confirm the banner disappears
+- [manual] I can't run the app — after deploy, POST to /api/X and check the response includes Y
+```
+
+Rules:
+- Every verification item is tagged `[automated]` or `[manual]`
+- At least one item must describe observable behavior beyond "tests pass"
+- If you can't verify something yourself, say what the user should check and how
+- If the change is purely internal (no UI, no API), describe what downstream behavior would break if your change were wrong
+
+"All tests pass" is necessary but never sufficient. A test can pass while the feature is broken if the test doesn't exercise the real integration.
 
 ## Anti-Patterns
 
