@@ -99,6 +99,17 @@ Some bugs need specific state, user interaction, or infrastructure. In these cas
 
 3. **Compare working vs broken** — find similar working code. What's different?
 
+4. **Falsify before committing** — Before you present a conclusion, ask: **"What evidence would prove me wrong?"** Then check for that evidence first. Run the one comparison that would kill your theory.
+
+```
+WRONG:
+  "I found evidence supporting my theory → I'm done"
+
+RIGHT:
+  "I found supporting evidence → now what would DISPROVE it?
+   Let me check that before presenting anything."
+```
+
 ### Phase 3: Fix & Verify
 
 1. **Write a failing test** that reproduces the bug (your throwaway script becomes a real test)
@@ -135,6 +146,45 @@ echo "Params: $PARAMS"
 
 Run once. The output shows WHERE data goes wrong — which layer corrupts it. Then read only that layer's code.
 
+### Victims vs Perpetrators in Cascading Failures
+
+**The component throwing the most errors is often the VICTIM, not the cause.**
+
+A slow query or resource hog doesn't throw errors — it silently consumes I/O, connections, or locks. The components that time out waiting for it fill your error logs. Error count ≠ causation.
+
+**To distinguish victims from perpetrators:**
+1. Which component is NEW or CHANGED? Perpetrators are usually recent changes.
+2. Which component is silent? Perpetrators often don't error — they just consume resources.
+3. What happens when the suspected perpetrator is removed/fixed? Compare before vs after.
+
+```
+WRONG:
+  "Service A has 500 errors, Service B has 0 → A is the cause"
+
+RIGHT:
+  "Service A has 500 errors, Service B has 0 → B may be silently
+   starving A. What changed recently? What happens if we fix B?"
+```
+
+## Reviewing Existing Analyses
+
+When a postmortem, bug report, or colleague already has a theory: **test THEIR hypothesis before building your own.**
+
+1. **Extract testable claims** — what specifically does the analysis predict?
+2. **Check those predictions first** — does the timeline match? Does before/after the fix match?
+3. **Only then** look for what they missed.
+
+**Key anti-pattern:** "I found problem B" does NOT disprove "problem A was the cause." Finding a different issue doesn't invalidate the original analysis — you must directly test the original claim.
+
+```
+WRONG:
+  Read postmortem → find different problem → "postmortem was wrong"
+
+RIGHT:
+  Read postmortem → test their specific claims → confirmed or disproved
+  → THEN look for additional factors
+```
+
 ## The 3-Fix Rule
 
 Tried 3 fixes and none worked? **STOP.**
@@ -158,6 +208,9 @@ If you catch yourself:
 - On fix #3 and about to try fix #4
 - "I don't fully understand but this might work"
 - Skipping the reproduction because "it's obvious from the code"
+- Building a counter-theory to an existing analysis without testing the original claim first
+- Using error counts to determine causation in a multi-component system
+- Declaring the loudest component "the cause" without checking for silent perpetrators
 
 **All of these mean: STOP. Write a reproduction script first.**
 
@@ -174,6 +227,8 @@ If you catch yourself:
 | "Issue is simple, don't need process" | Simple issues have root causes. Process is fast for simple bugs. |
 | "Emergency, no time for process" | Systematic is FASTER than guess-and-check thrashing. |
 | "One more fix attempt" (after 2+) | 3+ failures = architectural problem. Stop fixing. |
+| "The postmortem is wrong because I found a different problem" | Finding problem B doesn't disprove problem A. Test the original claim directly. |
+| "This component has the most errors, so it's the cause" | Loudest component is often the victim. Check what's silent and what changed. |
 
 ## After the Fix
 
