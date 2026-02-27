@@ -75,6 +75,17 @@ Some bugs need specific state, user interaction, or infrastructure. In these cas
 
 **The goal is always the same: observe actual runtime behavior, not theorize from source.**
 
+### Performance & Scaling
+
+For performance changes, the reproduction step is different: **estimate workload × per-unit cost before analyzing code correctness.** If the back-of-envelope math fails, the code doesn't matter.
+
+```
+"This optimization handles N items. How big is N in production?
+ Current cost per item is X seconds. N × X = ??? vs timeout."
+```
+
+One multiplication can kill a premise that hours of code analysis won't question. Do the arithmetic first.
+
 ## The Process
 
 ### Phase 1: Reproduce & Observe
@@ -95,19 +106,20 @@ Some bugs need specific state, user interaction, or infrastructure. In these cas
 
 1. **Trace backward** — from the symptom to the source. Where does the bad value originate? See [root-cause-tracing.md](root-cause-tracing.md).
 
-2. **Check recent changes** — `git log`, `git diff`. What changed?
+2. **Check recent changes** — `git log --oneline -- <file>` on changed files. Read ALL commits, not keyword searches. The **direction** of changes tells you what the team has learned. Three commits increasing parallelism means "this workload doesn't fit in one job." Two hotfixes adding resets means "state leaks here."
 
 3. **Compare working vs broken** — find similar working code. What's different?
 
-4. **Falsify before committing** — Before you present a conclusion, ask: **"What evidence would prove me wrong?"** Then check for that evidence first. Run the one comparison that would kill your theory.
+4. **Falsify before committing** — State your theory as a testable prediction: **"This works IF ___."** Then find the ONE number that would kill it. Check that number FIRST.
 
 ```
 WRONG:
   "I found evidence supporting my theory → I'm done"
 
 RIGHT:
-  "I found supporting evidence → now what would DISPROVE it?
-   Let me check that before presenting anything."
+  "This works IF precompute finishes within 1440s for 3000 employees."
+  "Current batches of 50 employees take 1433s. 3000/50 = 60x. Dead."
+  Check THAT before presenting anything.
 ```
 
 ### Phase 3: Fix & Verify
@@ -211,6 +223,9 @@ If you catch yourself:
 - Building a counter-theory to an existing analysis without testing the original claim first
 - Using error counts to determine causation in a multi-component system
 - Declaring the loudest component "the cause" without checking for silent perpetrators
+- 30+ minutes deep in one analysis thread without checking basic constraints (timeouts, scale, resources)
+- Analyzing code correctness of a performance change without estimating workload × cost first
+- Searching git history for keywords instead of reading `git log --oneline -- <file>`
 
 **All of these mean: STOP. Write a reproduction script first.**
 
@@ -229,6 +244,8 @@ If you catch yourself:
 | "One more fix attempt" (after 2+) | 3+ failures = architectural problem. Stop fixing. |
 | "The postmortem is wrong because I found a different problem" | Finding problem B doesn't disprove problem A. Test the original claim directly. |
 | "This component has the most errors, so it's the cause" | Loudest component is often the victim. Check what's silent and what changed. |
+| "I'll check scaling after I understand correctness" | If it can't finish, correctness doesn't matter. Check constraints first. |
+| "This analysis is complex, I need to finish it" | 30 min on one thread without checking basics = tunnel vision. Stop and check constraints. |
 
 ## After the Fix
 

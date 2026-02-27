@@ -34,6 +34,8 @@ Do not summarize your reading. Do not propose anything yet. Just build context.
 
 **Verify by running, not just reading.** When you form a belief about runtime behavior — "this method throws when frozen", "this helper is unused", "keys are stored flat" — verify it. Write a throwaway script, run the app, or `grep` the codebase. Reading code tells you what COULD happen. Running code tells you what DOES happen. One `node -e "..."` reveals more than reading 5 files. Pay special attention to methods you plan to build on — run them, don't assume.
 
+**Read git history of files you're building on:** `git log --oneline -- <file>`. The direction of recent changes reveals what the team has tried and learned.
+
 ### Phase 2: Problem
 
 Define WHAT is needed, not HOW to build it.
@@ -89,7 +91,7 @@ Rules:
 - If only one viable option exists, say so and explain why alternatives don't work.
 - **If all options pass but one feels wrong, there's a missing requirement.** Articulate it and add it to the list.
 
-**Falsify before recommending.** Before presenting your recommendation, ask: "What would prove this option wrong?" Then check for that evidence. Run a throwaway script for the critical mechanism, `grep` for callers you might have missed, test the edge case that would break it. If you skip this, you're guessing, not recommending.
+**Falsify before recommending.** Before presenting your recommendation, state it as: **"This works IF ___."** Then check that condition. For performance: estimate workload × per-unit cost. For correctness: run a throwaway script for the critical mechanism. `grep` for callers you might have missed. If you skip this, you're guessing, not recommending.
 
 ### Phase 4: Recommend and Align
 
