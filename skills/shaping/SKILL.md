@@ -32,6 +32,8 @@ You may also discover existing patterns that are wrong or fragile. Flag them —
 
 Do not summarize your reading. Do not propose anything yet. Just build context.
 
+**Verify by running, not just reading.** When you form a belief about runtime behavior — "this method throws when frozen", "this helper is unused", "keys are stored flat" — verify it. Write a throwaway script, run the app, or `grep` the codebase. Reading code tells you what COULD happen. Running code tells you what DOES happen. One `node -e "..."` reveals more than reading 5 files. Pay special attention to methods you plan to build on — run them, don't assume.
+
 ### Phase 2: Problem
 
 Define WHAT is needed, not HOW to build it.
@@ -86,6 +88,8 @@ Rules:
 - **Flag unknowns:** If you described WHAT but don't know HOW, mark it ⚠️. A flagged unknown means ❌ until resolved.
 - If only one viable option exists, say so and explain why alternatives don't work.
 - **If all options pass but one feels wrong, there's a missing requirement.** Articulate it and add it to the list.
+
+**Falsify before recommending.** Before presenting your recommendation, ask: "What would prove this option wrong?" Then check for that evidence. Run a throwaway script for the critical mechanism, `grep` for callers you might have missed, test the edge case that would break it. If you skip this, you're guessing, not recommending.
 
 ### Phase 4: Recommend and Align
 
@@ -159,9 +163,11 @@ Templates
 
 ## Spikes
 
-When an option has a flagged unknown (⚠️), you may need a spike: a focused investigation to answer "can we actually do this?" before committing.
+When an option has a flagged unknown (⚠️), you need a spike before recommending it. No spike = guessing.
 
-A spike is NOT implementation. It's reading code, checking APIs, writing throwaway scripts to verify assumptions. The output is knowledge: "yes, ActionText supports cloning with `record.dup`" or "no, the attachment system doesn't support cross-record references."
+A spike is NOT implementation. It's writing throwaway scripts, checking APIs, running code to verify assumptions. The output is knowledge: "yes, ActionText supports cloning with `record.dup`" or "no, the attachment system doesn't support cross-record references."
+
+**Spike against the actual code, not theoretical behavior.** Test the real method, the real config, the real runtime path. If your spike tests something different from what the code actually does, you'll eliminate valid options or keep broken ones.
 
 Spike when the unknown would change which option you pick. Don't spike things you'll figure out during implementation.
 
@@ -199,3 +205,8 @@ Rules:
 | Deciding everything unilaterally | Present options, wait for user decision |
 | Shaping a trivial task | "I'd rename the method and update 2 call sites. Good?" |
 | Replicating existing patterns without evaluating correctness | "I see 10 tests mocking X. Do those mocks match reality? Let me verify against the real code." |
+| Claiming runtime behavior from reading only | Run it. One throwaway script beats reading 5 files. |
+| Recommending without falsifying | "What would prove this option wrong?" Check before presenting. |
+| Skipping spike on ⚠️ unknowns | If it would change your recommendation, spike it now. |
+| "Codebase is small, I can reason about it" | Small codebases have subtle behaviors too. Run it. |
+| "No time to verify, user is waiting" | A 10-second `node -e` is faster than a wrong recommendation. |
