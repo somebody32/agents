@@ -1,0 +1,21 @@
+{
+  "name": "pi-skill-recall",
+  "version": "0.1.0",
+  "description": "Re-read skills after context compaction in pi coding agent",
+  "type": "module",
+  "keywords": ["pi-package"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "pi": {
+    "extensions": ["./index.ts"]
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@sinclair/typebox": "*"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0"
+  }
+}
