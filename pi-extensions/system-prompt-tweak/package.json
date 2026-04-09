@@ -1,0 +1,13 @@
+{
+  "name": "pi-system-prompt-tweak",
+  "version": "0.1.0",
+  "description": "Tweaks a specific anthropic system-prompt line in pi before each agent turn",
+  "type": "module",
+  "keywords": ["pi-package"],
+  "pi": {
+    "extensions": ["./index.ts"]
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*"
+  }
+}
