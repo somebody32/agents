@@ -100,6 +100,8 @@ Test errors? Fix error, re-run until it fails correctly.
 
 Simplest code to make the test pass. Don't add features, don't refactor, don't "improve" beyond the test.
 
+**Stay surgical.** Don't touch adjacent code, comments, or formatting while implementing. Drive-by changes during GREEN make the diff unreviewable and the bug surface ambiguous. See `surgical-edits` for the full rule and rationalization table.
+
 **Then verify it passes. MANDATORY.**
 
 ```bash
@@ -121,6 +123,8 @@ Test fails? Fix code, not test. Other tests fail? Fix now.
 - Deepen modules (see [design.md](design.md))
 - Apply SOLID where natural
 - Run tests after each refactor step
+
+**Refactor stays scoped to what you just implemented.** Don't refactor unrelated parts of the file because you're "already in there." See `surgical-edits`.
 
 ### 6. Repeat
 
