@@ -31,8 +31,8 @@ pi login github-copilot   # etc.
 
 The script:
 
-1. Copies `pi-config/settings.json` and `pi-config/models.json` into `~/.pi/agent/` (backs up any existing files first).
-2. Copies any `pi-config/extensions/*.json` into `~/.pi/<name>.json`, merging into existing files so locally-held secrets survive re-runs.
+1. **Symlinks** `~/.pi/agent/settings.json` and `~/.pi/agent/models.json` to the files in `pi-config/` (backs up any pre-existing real files first). Pi writes through the symlink, so any future `/settings` edit, `pi install`, or `lastChangelogVersion` bump shows up immediately as a `git diff` — no copy-back step needed.
+2. Merges any `pi-config/extensions/*.json` into `~/.pi/<name>.json` via `jq` so locally-held secrets (e.g. `exaApiKey`) survive re-runs.
 3. Symlinks every `skills/<name>/` into `~/.agents/skills/<name>`.
 4. Reads `pi-config/skill-lock.json` and runs `npx skills add` for each remote skill.
 5. On first pi launch, npm-sourced packages declared in `settings.json` auto-install.
@@ -82,21 +82,21 @@ export GEMINI_API_KEY=...
 
 ## Updating the committed config from a machine
 
-After installing or removing a package via `pi install` / `pi remove` or editing settings via `/settings`, copy the changes back:
+`settings.json` and `models.json` are symlinked, so any change made via pi (`pi install`, `/settings`, etc.) is **already** in the repo — just review and commit:
 
 ```bash
-cp ~/.pi/agent/settings.json     pi-config/settings.json
-cp ~/.pi/agent/models.json       pi-config/models.json
-cp ~/.agents/.skill-lock.json    pi-config/skill-lock.json
-git diff pi-config/               # review
-git add pi-config/ && git commit  # ship to other machines
+cd ~/Developer/agents
+git diff pi-config/
+git add pi-config/ && git commit
 ```
 
-For extension configs, hand-pick the non-secret keys before committing:
+`skill-lock.json` and extension configs are not symlinked, so for them:
 
 ```bash
+cp ~/.agents/.skill-lock.json    pi-config/skill-lock.json
+# Extension configs: hand-pick non-secret keys
 jq 'del(.exaApiKey, .geminiApiKey)' ~/.pi/web-search.json > pi-config/extensions/web-search.json
-git add pi-config/extensions/web-search.json && git diff --cached
+git add pi-config/ && git diff --cached
 ```
 
 Before committing anything: scan for keys. `models.json`'s `llama-cpp` block uses `"apiKey": "none"` (safe). Any other `apiKey` / `token` field is a red flag.
