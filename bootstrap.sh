@@ -18,7 +18,8 @@ if [[ "${1:-}" == "--dry-run" ]]; then
 fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PI_AGENT_DIR="${HOME}/.pi/agent"
+PI_ROOT_DIR="${HOME}/.pi"
+PI_AGENT_DIR="${PI_ROOT_DIR}/agent"
 AGENTS_SKILLS_DIR="${HOME}/.agents/skills"
 SKILL_LOCK_DEST="${HOME}/.agents/.skill-lock.json"
 
@@ -45,6 +46,12 @@ require git
 log "Installing pi config files into ${PI_AGENT_DIR}"
 run mkdir -p "${PI_AGENT_DIR}"
 
+json_equal() {
+  # Returns 0 iff both files exist and parse to the same JSON value.
+  [[ -f "$1" && -f "$2" ]] || return 1
+  jq -e --slurpfile a "$1" --slurpfile b "$2" -n '$a == $b' >/dev/null 2>&1
+}
+
 for file in settings.json models.json; do
   src="${REPO_ROOT}/pi-config/${file}"
   dest="${PI_AGENT_DIR}/${file}"
@@ -52,7 +59,7 @@ for file in settings.json models.json; do
     warn "skip ${file}: not found in pi-config/"
     continue
   fi
-  if [[ -f "$dest" ]] && cmp -s "$src" "$dest"; then
+  if json_equal "$src" "$dest"; then
     log "  ${file}: up to date"
   else
     if [[ -f "$dest" ]]; then
@@ -64,7 +71,38 @@ for file in settings.json models.json; do
   fi
 done
 
-# ---------- 2. local skill symlinks ----------
+# ---------- 2. extension-owned configs ----------
+# Extensions (e.g. pi-web-access) store their settings outside ~/.pi/agent,
+# directly under ~/.pi/<name>.json. Anything in pi-config/extensions/ is copied
+# verbatim to ~/.pi/. NEVER commit secrets here — see README for the secret
+# bootstrapping pattern.
+EXT_CONFIG_DIR="${REPO_ROOT}/pi-config/extensions"
+if [[ -d "$EXT_CONFIG_DIR" ]] && compgen -G "${EXT_CONFIG_DIR}/*.json" >/dev/null; then
+  log "Installing extension configs into ${PI_ROOT_DIR}"
+  run mkdir -p "${PI_ROOT_DIR}"
+  for src in "${EXT_CONFIG_DIR}"/*.json; do
+    name="$(basename "$src")"
+    dest="${PI_ROOT_DIR}/${name}"
+    if json_equal "$src" "$dest"; then
+      log "  ${name}: up to date"
+      continue
+    fi
+    # Merge: if dest exists and is valid JSON, fold committed prefs into it
+    # so locally-stored secrets (e.g. exaApiKey) survive re-bootstrap.
+    if [[ -f "$dest" ]] && jq -e . "$dest" >/dev/null 2>&1; then
+      tmp="$(mktemp)"
+      jq -s '.[0] * .[1]' "$dest" "$src" > "$tmp"
+      run cp "$dest" "${dest}.bak.$(date +%s)"
+      run mv "$tmp" "$dest"
+      log "  ${name}: merged prefs into existing file (secrets preserved)"
+    else
+      run cp "$src" "$dest"
+      log "  ${name}: installed"
+    fi
+  done
+fi
+
+# ---------- 3. local skill symlinks ----------
 log "Symlinking local skills into ${AGENTS_SKILLS_DIR}"
 run mkdir -p "${AGENTS_SKILLS_DIR}"
 
@@ -95,7 +133,7 @@ else
   warn "no skills/ directory in repo, skipping symlink step"
 fi
 
-# ---------- 3. lockfile-driven remote skills ----------
+# ---------- 4. lockfile-driven remote skills ----------
 LOCK_SRC="${REPO_ROOT}/pi-config/skill-lock.json"
 if [[ -f "$LOCK_SRC" ]]; then
   log "Restoring remote skills from pi-config/skill-lock.json"
@@ -126,19 +164,23 @@ else
   log "no pi-config/skill-lock.json — skipping remote skill restore"
 fi
 
-# ---------- 4. next steps ----------
+# ---------- 5. next steps ----------
 cat <<EOF
 
 $(printf '\033[1;32m✓\033[0m') Bootstrap complete.
 
 Next steps (manual, secrets are never synced):
-  1. Authenticate each provider you use:
+  1. Authenticate each pi provider you use:
        pi login anthropic
        pi login github-copilot
        pi login openai-codex
        pi login opencode-go
-  2. Launch pi once — npm-sourced packages in settings.json hydrate on first run.
-  3. If you use llama-cpp locally, ensure it is reachable at the baseUrl in
+  2. Add extension secrets that bootstrap intentionally skipped:
+       # pi-web-access: Exa.ai search
+       echo '{"exaApiKey":"<your-key>"}' > ~/.pi/web-search.json
+       # (or set EXA_API_KEY / GEMINI_API_KEY in your shell rc instead)
+  3. Launch pi once — npm-sourced packages in settings.json hydrate on first run.
+  4. If you use llama-cpp locally, ensure it is reachable at the baseUrl in
      pi-config/models.json (currently http://127.0.0.1:8080/v1).
 
 EOF

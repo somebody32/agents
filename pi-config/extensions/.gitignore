@@ -1,0 +1,10 @@
+# Keep this directory tracked, but never commit raw extension config dumps
+# that may contain secrets. Commit a sanitized version per file instead.
+#
+# To track a sanitized version:
+#   1. Strip secrets (e.g. jq 'del(.exaApiKey,.geminiApiKey)' < src > dst)
+#   2. git add -f pi-config/extensions/<name>.json
+#
+# Default: ignore everything except this gitignore and explicitly-added files.
+*
+!.gitignore
