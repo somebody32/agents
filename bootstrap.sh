@@ -42,19 +42,15 @@ require() {
 require jq
 require git
 
+# ---------- 1. pi config files ----------
+log "Installing pi config files into ${PI_AGENT_DIR}"
+run mkdir -p "${PI_AGENT_DIR}"
+
 json_equal() {
   # Returns 0 iff both files exist and parse to the same JSON value.
   [[ -f "$1" && -f "$2" ]] || return 1
   jq -e --slurpfile a "$1" --slurpfile b "$2" -n '$a == $b' >/dev/null 2>&1
 }
-
-# ---------- 1. pi config files (symlinked for round-trip) ----------
-# Pi uses plain writeFileSync + lockfile (no atomic rename), so writes through
-# a symlink land in the target file. Symlinking means any change pi makes (via
-# /settings, pi install, lastChangelogVersion bumps) shows up as a git diff
-# immediately — no copy-back step.
-log "Linking pi config files into ${PI_AGENT_DIR}"
-run mkdir -p "${PI_AGENT_DIR}"
 
 for file in settings.json models.json; do
   src="${REPO_ROOT}/pi-config/${file}"
@@ -63,41 +59,39 @@ for file in settings.json models.json; do
     warn "skip ${file}: not found in pi-config/"
     continue
   fi
-  if [[ -L "$dest" && "$(readlink "$dest")" == "$src" ]]; then
-    log "  ${file}: symlink ok"
-    continue
+  if json_equal "$src" "$dest"; then
+    log "  ${file}: up to date"
+  else
+    if [[ -f "$dest" ]]; then
+      run cp "$dest" "${dest}.bak.$(date +%s)"
+      log "  ${file}: backed up existing → ${dest}.bak.*"
+    fi
+    run cp "$src" "$dest"
+    log "  ${file}: installed"
   fi
-  if [[ -e "$dest" && ! -L "$dest" ]]; then
-    run cp "$dest" "${dest}.bak.$(date +%s)"
-    log "  ${file}: backed up existing → ${dest}.bak.*"
-    run rm "$dest"
-  elif [[ -L "$dest" ]]; then
-    run rm "$dest"
-  fi
-  run ln -s "$src" "$dest"
-  log "  ${file}: linked"
 done
 
-# ---------- 2. extension-owned configs (merged, not symlinked) ----------
+# ---------- 2. extension-owned configs ----------
 # Extensions (e.g. pi-web-access) store their settings outside ~/.pi/agent,
-# directly under ~/.pi/<name>.json. The committed file in pi-config/extensions/
-# holds only non-secret prefs; the live file holds prefs + secrets. We jq-merge
-# so committed prefs apply without clobbering locally-held secrets.
+# directly under ~/.pi/<name>.json. Anything in pi-config/extensions/ is copied
+# verbatim to ~/.pi/. NEVER commit secrets here — see README for the secret
+# bootstrapping pattern.
 EXT_CONFIG_DIR="${REPO_ROOT}/pi-config/extensions"
 if [[ -d "$EXT_CONFIG_DIR" ]] && compgen -G "${EXT_CONFIG_DIR}/*.json" >/dev/null; then
-  log "Merging extension configs into ${PI_ROOT_DIR}"
+  log "Installing extension configs into ${PI_ROOT_DIR}"
   run mkdir -p "${PI_ROOT_DIR}"
   for src in "${EXT_CONFIG_DIR}"/*.json; do
     name="$(basename "$src")"
     dest="${PI_ROOT_DIR}/${name}"
+    if json_equal "$src" "$dest"; then
+      log "  ${name}: up to date"
+      continue
+    fi
+    # Merge: if dest exists and is valid JSON, fold committed prefs into it
+    # so locally-stored secrets (e.g. exaApiKey) survive re-bootstrap.
     if [[ -f "$dest" ]] && jq -e . "$dest" >/dev/null 2>&1; then
       tmp="$(mktemp)"
       jq -s '.[0] * .[1]' "$dest" "$src" > "$tmp"
-      if cmp -s "$tmp" "$dest"; then
-        rm -f "$tmp"
-        log "  ${name}: up to date"
-        continue
-      fi
       run cp "$dest" "${dest}.bak.$(date +%s)"
       run mv "$tmp" "$dest"
       log "  ${name}: merged prefs into existing file (secrets preserved)"
