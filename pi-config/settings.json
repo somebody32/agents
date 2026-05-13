@@ -1,4 +1,5 @@
 {
+  "lastChangelogVersion": "0.74.0",
   "defaultProvider": "openai-codex",
   "defaultModel": "gpt-5.5",
   "defaultThinkingLevel": "xhigh",
@@ -6,9 +7,9 @@
     "~/.agents/skills"
   ],
   "packages": [
-    "~/Developer/agents/pi-extensions/skill-recall",
-    "~/Developer/agents/pi-extensions/system-prompt-tweak",
+    "../../Developer/agents/pi-extensions/skill-recall",
     "npm:pi-caffeinate",
+    "../../Developer/agents/pi-extensions/system-prompt-tweak",
     "npm:pi-web-access",
     {
       "source": "npm:amp-themes",
