@@ -1,28 +1,29 @@
 {
-  "lastChangelogVersion": "0.74.0",
+  "lastChangelogVersion": "0.79.6",
   "defaultProvider": "openai-codex",
   "defaultModel": "gpt-5.5",
-  "defaultThinkingLevel": "xhigh",
+  "defaultThinkingLevel": "high",
   "skills": [
     "~/.agents/skills"
   ],
   "packages": [
     "../../Developer/agents/pi-extensions/skill-recall",
     "npm:pi-caffeinate",
-    "../../Developer/agents/pi-extensions/system-prompt-tweak",
+    "../../code/agents/pi-extensions/system-prompt-tweak/index.ts",
     "npm:pi-web-access",
     {
       "source": "npm:amp-themes",
       "skills": []
-    }
+    },
+    "npm:pi-openai-fast"
   ],
   "quietStartup": false,
   "collapseChangelog": true,
   "theme": "amp-dark",
   "enabledModels": [
-    "anthropic/claude-opus-4-7",
     "openai-codex/gpt-5.5",
-    "github-copilot/gpt-5.5"
+    "anthropic/claude-opus-4-8",
+    "anthropic/claude-fable-5"
   ],
   "transport": "auto",
   "steeringMode": "all",
