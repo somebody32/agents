@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: Use when implementing features, fixing bugs (including P0 hotfixes and production incidents), or refactoring. Use when user mentions TDD, red-green-refactor, test-first, or when tempted to write code before tests. Use when fixing any bug — even trivial ones. Use when encountering or modifying existing code that lacks tests. Use when writing tests, deciding what to mock, or when tests are full of mocks, coupled to implementation, or break on every refactor.
+description: Use when implementing features, fixing bugs (including P0 hotfixes and production incidents), refactoring, removing dead code, or deleting legacy paths. Use when user mentions TDD, red-green-refactor, test-first, or when tempted to write code before tests. Use when fixing any bug — even trivial ones. Use when encountering or modifying existing code that lacks tests. Use when writing tests, deciding what to mock, or when tests are full of mocks, coupled to implementation, or break on every refactor.
 ---
 
 # Test-Driven Development
@@ -51,6 +51,8 @@ When you encounter production code without corresponding tests — whether readi
 
 Don't silently accept untested code. Don't rationalize it as "already manually tested" or "battle-tested in production." Code without automated tests is unverified code, full stop. The user deserves to know and decide.
 
+**If the untested code is being deleted:** Don't add committed tests for the doomed code. Verify deadness instead (grep/callers/static analysis), remove it, and run affected tests. Only write tests for durable public behavior that must remain or change.
+
 ## Workflow
 
 ### 1. Plan (with user)
@@ -81,7 +83,9 @@ RIGHT (vertical):
 
 Tests written in bulk test _imagined_ behavior. Each test should respond to what you learned from the previous cycle.
 
-### 3. RED — Write One Failing Test
+### 3. RED — Write One Durable Failing Test
+
+Before writing a test, ask: **Will this assertion still matter after the final design?** If no, don't add it to the permanent test suite.
 
 One minimal test. One behavior. Clear name. Wire **real collaborators** together; mock only true external boundaries (see [Mock Only at the System Boundary](#mock-only-at-the-system-boundary)).
 
@@ -97,6 +101,7 @@ Confirm:
 
 Test passes? You're testing existing behavior. Fix test.
 Test errors? Fix error, re-run until it fails correctly.
+No durable behavior change? Don't invent an absence test just to manufacture RED. Verify with search/static checks and run existing tests.
 
 ### 4. GREEN — Minimal Code
 
@@ -135,9 +140,11 @@ Next failing test for next behavior.
 ## Per-Cycle Checklist
 
 ```
-[ ] Test describes behavior, not implementation
+[ ] Test describes durable behavior, not implementation
 [ ] Test uses public interface only
 [ ] Test would survive internal refactor
+[ ] Test will still matter after planned removals/refactors
+[ ] Not testing temporary scaffolding or code planned for deletion
 [ ] Uses real collaborators; mocks only true external boundaries
 [ ] Watched test fail before implementing
 [ ] Failure was for expected reason
@@ -264,6 +271,12 @@ test("createUser makes user retrievable", async () => {
 
 Red flags: mocking internal collaborators, testing private methods, asserting on call counts, test name describes HOW not WHAT, verifying through external means instead of the interface.
 
+### Deletion and Absence Tests
+
+Test absence only when absence is durable public behavior: endpoint returns 404/410, CLI flag is rejected, UI action is gone for users, API no longer exposes a documented capability.
+
+Do NOT add permanent tests that only prove internal deletion: helper/class/file no longer exists, module no longer imports/exports an internal symbol, private method is absent, temporary scaffold is removed. Use grep/static analysis/build checks for that proof, not tests.
+
 ## Testing Anti-Patterns
 
 **Core principle:** Test what the code does, not what the mocks do.
@@ -355,6 +368,9 @@ After a TDD cycle, look for: **duplication** → extract; **long methods** → p
 | "Deleting X hours is wasteful" | Sunk cost fallacy. Keeping unverified code is debt. |
 | "Keep as reference" | You'll adapt it. That's testing after. Delete means delete. |
 | "Need to explore first" | Fine. Throw away exploration, start with TDD. |
+| "I need a failing test, so I'll test that the helper is gone" | That tests implementation absence, not behavior. Verify deletion with search/static checks. |
+| "Reviewer asked for proof before deleting untested code" | Proof can be grep/caller analysis + existing tests + public behavior checks. Don't preserve dead code in tests. |
+| "There are no tests, so I need to create an absence test" | Don't invent tests for things that should not exist. If no durable behavior changes, no RED test exists. |
 | "Test hard = skip test" | Hard to test = hard to use. Listen to the test. Fix design. |
 | "I'll mock the collaborator to isolate the unit" | That collaborator is your own code. Use it for real. Mock only the external edge. |
 | "Mocking my own class makes the test faster/simpler" | It makes the test verify mocks, not behavior. In-process + deterministic → use the real thing. |
@@ -376,6 +392,10 @@ After a TDD cycle, look for: **duplication** → extract; **long methods** → p
 - Mocking your own application database
 - Asserting on call counts / `toHaveBeenCalledWith` instead of observable results
 - Mock setup longer than the test logic
+- Writing a test for code you plan to delete
+- Test name says "is not exposed", "does not exist", or "removed helper" for internals
+- Asserting internal file/class/helper/import absence instead of public behavior
+- Creating a failing test only by referencing doomed code
 - "I already manually tested it"
 - "It's un-automated-tested, not untested"
 - "Tests after achieve the same purpose"
