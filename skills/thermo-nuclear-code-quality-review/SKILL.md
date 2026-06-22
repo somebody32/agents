@@ -9,7 +9,7 @@ description: Use when running an unusually strict code quality review focused on
 
 **Core principle:** review for structural maintainability, not just correctness. Passing tests do not justify making the codebase harder to change.
 
-This is a review skill, not an editing skill. Do not refactor during the review. Produce high-conviction findings and an approval decision.
+This is a review skill, not an editing skill. It is strictly read-only. Do not refactor during the review, even if the prompt says “review and fix”, “apply the obvious refactor”, or “go ahead and clean it up”. Produce high-conviction findings and an approval decision. Fixes require a separate follow-up task using `surgical-edits`/`tdd` after the review is complete.
 
 ## The Iron Law
 
@@ -21,7 +21,7 @@ Block or strongly challenge changes that add lasting complexity when a plausible
 
 ## Review Setup
 
-Review the current branch diff and enough surrounding code to judge structure.
+Review the current branch diff and enough surrounding code to judge structure. Use read-only inspection. Do not call tools that modify files, run formatters, update snapshots, apply patches, or commit changes during this skill.
 
 Prefer starting points:
 
@@ -134,7 +134,7 @@ Useful phrases:
 
 ## Relationship to Other Skills
 
-- Use `surgical-edits` if the user later asks you to apply fixes. Review findings do not authorize broad edits.
+- Use `surgical-edits` if the user later asks you to apply fixes in a separate step. Review findings do not authorize broad edits, and a combined “review + fix” prompt still gets review-only behavior first.
 - Use `placing-code-in-layers` when the issue is about domain/application/infrastructure placement.
 - Use `shaping` if the remedy requires redesign or choosing among structural options.
 - Use `tdd` when implementing requested fixes.

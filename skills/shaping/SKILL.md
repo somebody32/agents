@@ -1,214 +1,243 @@
 ---
 name: shaping
-description: Use when planning features, designing changes, or scoping work before implementation. Use when user says plan, design, think through, shape, or how should we approach. Use before building anything non-trivial in a brownfield codebase.
+description: Use when planning features, designing changes, stress-testing ideas, scoping work, or deciding how to approach non-trivial implementation. Use when the user says plan, design, shape, grill, think through, prototype the idea, or asks for an implementation plan.
 ---
 
 # Shaping
 
-Define the problem before exploring solutions. Never propose HOW until you've agreed on WHAT.
+## Overview
 
-Inspired by the [Shape Up](https://basecamp.com/shapeup) methodology: separate problem from solution, compare options against requirements, slice vertically.
+**Core principle:** align on the problem and reduce uncertainty before production implementation. Do not propose HOW until WHAT is clear; do not produce a plan that hides unresolved decisions.
+
+Shaping is not ceremony. It chooses the smallest artifact that makes the next implementation step safe: a one-sentence scope, a grilling question, a prototype, a decision map, or agent-ready vertical slices.
 
 ## The Iron Law
 
-**NO IMPLEMENTATION BEFORE ALIGNMENT.**
-
-Do not edit code, create files, run generators, or commit during shaping. The output is a shared understanding and a plan — not code.
-
-## Phases
-
-### Phase 1: Investigate
-
-Read the codebase silently before saying anything. Understand:
-
-- What exists in the area of change
-- What patterns the codebase uses
-- What adjacent systems connect to it
-- What would be affected
-
-You may discover the request is already partially solved. Say so.
-
-You may also discover existing patterns that are wrong or fragile. Flag them — don't silently replicate them.
-
-Do not summarize your reading. Do not propose anything yet. Just build context.
-
-**Verify by running, not just reading.** When you form a belief about runtime behavior — "this method throws when frozen", "this helper is unused", "keys are stored flat" — verify it. Write a throwaway script, run the app, or `grep` the codebase. Reading code tells you what COULD happen. Running code tells you what DOES happen. One `node -e "..."` reveals more than reading 5 files. Pay special attention to methods you plan to build on — run them, don't assume.
-
-**Read git history of files you're building on:** `git log --oneline -- <file>`. The direction of recent changes reveals what the team has tried and learned.
-
-### Phase 2: Problem
-
-Define WHAT is needed, not HOW to build it.
-
-Write down requirements as a numbered list. Requirements describe outcomes and constraints — not implementations:
-
-- ✅ "Users can create cards from predefined structures" (outcome)
-- ❌ "Create a CardTemplate model with JSON column" (implementation)
-- ✅ "Templates preserve rich text and attachments" (constraint)
-- ❌ "Use ActionText for template content" (implementation)
-
-**Interview the user.** Walk the design tree depth-first, one decision at a time. Each question should:
-
-- Reference what you found in the codebase ("I see you're using ActionText for card content — should templates preserve formatting, or plain text only?")
-- Resolve one decision before moving to the next
-- Follow dependency order — don't ask about error handling before the data model
-- Prefer multiple choice over open-ended when the options are clear
-
-Keep going until you've walked every branch. Don't stop after 2 questions because it "feels like enough." But don't ask questions you can answer from the code yourself.
-
-**Define the acceptance proof.** Before moving to options, answer: "How will we know this works?" The answer must be observable behavior, not "tests pass":
-
-- ✅ "Thinking indicator appears in chat when agent calls queryData" (observable)
-- ❌ "All unit tests pass" (proves nothing about runtime)
-- ✅ "POST /api/templates returns 201 and GET /api/templates lists it" (verifiable)
-- ❌ "Code looks correct" (opinion, not proof)
-
-If you can't verify it yourself, say what the user should check: "I can't run the frontend. After deploy, open chat, ask a data question, confirm you see the spinner."
-
-The output is a requirements list + acceptance proof you both agree on.
-
-### Phase 3: Options
-
-Propose 2-3 approaches. Each option is a concrete mechanism, not a vague direction:
-
-- ✅ "A: Polymorphic Template model with has_one content association, reuses existing ActionText pipeline"
-- ❌ "A: Use the database"
-
-Compare options against requirements:
-
 ```
-| Requirement              | A: Polymorphic | B: JSON column | C: Duplicate card |
-|--------------------------|:-:|:-:|:-:|
-| R1: Preserve rich text   | ✅ | ❌ | ✅ |
-| R2: Board-scoped         | ✅ | ✅ | ❌ |
-| R3: < 2 migrations       | ❌ | ✅ | ✅ |
+NO PRODUCTION IMPLEMENTATION BEFORE ALIGNMENT.
 ```
+
+Do not edit production code, create migrations, generate files, or commit while shaping. Throwaway prototypes are allowed only when they answer a specific question and are clearly marked to delete or absorb later.
+
+## Choose the Mode First
+
+| Situation | Mode |
+|---|---|
+| Clear change, <3 files, no real design decision | State done criteria + quick approach; ask for thumbs up |
+| Non-trivial feature/design in a codebase | Full shaping |
+| User wants to stress-test an idea / “grill me” | Grilling loop |
+| A question cannot be answered from prose | Throwaway prototype |
+| Too many unknowns for one session | Decision map |
+| Multiple agents/days of implementation | Agent-ready PRD/issues/plan |
+
+If you pick the wrong mode, say so and switch. Do not force full shaping onto trivial work; do not fake certainty on fog-of-war work.
+
+## Phase 1 — Investigate
+
+Read the codebase silently before asking questions when code can answer them. Understand:
+
+- existing behavior and vocabulary;
+- patterns the codebase uses;
+- adjacent systems affected;
+- tests and seams already present;
+- recent direction: `git log --oneline -- <file>` for files you rely on.
+
+Verify runtime assumptions by running code, throwaway scripts, tests, or grep. Reading tells you what could happen; running tells you what does happen.
+
+Output only what changes the conversation: “this already exists”, “this pattern is fragile”, or “the code contradicts the premise”.
+
+## Phase 2 — Define WHAT
+
+Write requirements as outcomes and constraints, not implementations:
+
+- Good: “Users can create templates from existing cards.”
+- Bad: “Add `CardTemplate` with a JSON column.”
+
+Define acceptance proof before options:
+
+- observable behavior, API response, UI state, or manual check;
+- not merely “tests pass”.
+
+If you cannot verify something yourself, state the manual check the user must do.
+
+## The Grilling Loop
+
+Use when the plan/design needs sharpening. Walk the design tree depth-first.
 
 Rules:
-- ✅ or ❌ only. No "maybe" or "partially." If you can't say yes, it's no.
-- If an option fails a requirement, explain briefly in notes below the table.
-- **Flag unknowns:** If you described WHAT but don't know HOW, mark it ⚠️. A flagged unknown means ❌ until resolved.
-- If only one viable option exists, say so and explain why alternatives don't work.
-- **If all options pass but one feels wrong, there's a missing requirement.** Articulate it and add it to the list.
+- Ask **one decision question at a time**.
+- Give **your recommended answer** with the question.
+- Prefer multiple choice when options are clear.
+- Reference code evidence when available.
+- If code can answer it, inspect code instead of asking.
+- Resolve foundational decisions before downstream ones.
 
-**Falsify before recommending.** Before presenting your recommendation, state it as: **"This works IF ___."** Then check that condition. For performance: estimate workload × per-unit cost. For correctness: run a throwaway script for the critical mechanism. `grep` for callers you might have missed. If you skip this, you're guessing, not recommending.
+Format:
 
-### Phase 4: Recommend and Align
-
-Lead with YOUR recommendation and reasoning. Don't present options as equally valid if they aren't. Challenge the user's original approach if investigation revealed problems.
-
-Then **wait for the user's decision.** Do not proceed until they choose.
-
-### Phase 5: Slice
-
-Break the chosen approach into vertical slices. Each slice must be demo-able — a user can see something working.
-
-WRONG (horizontal layers):
-```
-1. Create database migrations
-2. Build API endpoints
-3. Add UI components
+```md
+Foundational decision: <decision>
+Options:
+A. ...
+B. ...
+C. ...
+My recommendation: <option> because <evidence/tradeoff>.
+Which one matches your intent?
 ```
 
-RIGHT (vertical slices):
+Do not dump a questionnaire. Ten questions at once is avoidance disguised as diligence.
+
+Stop grilling when requirements are stable and new questions no longer change the plan.
+
+## When Prose Is Not Enough: Prototype
+
+A prototype is throwaway code that answers one question.
+
+Use when:
+- state/business logic is hard to judge in prose;
+- UI direction needs to be seen, not described;
+- an option has a critical unknown that changes the recommendation.
+
+Rules:
+- State the question first: “This prototype answers whether ___.”
+- Make it runnable with one command.
+- No persistence by default.
+- No polish, abstractions, or production integration.
+- Surface the relevant state after every action.
+- When done, capture the answer and delete or absorb the prototype.
+
+Default shapes:
+- logic/state model → tiny terminal/script prototype;
+- UI direction → several visibly different variants behind one route or toggle.
+
+Do not call production implementation a prototype. If it must be kept, it is implementation and needs normal TDD/verification.
+
+## When There Is Fog of War: Decision Map
+
+Use when a loose idea has more uncertainty than one shaping session can resolve.
+
+Create a compact decision map instead of a fake implementation plan. Each ticket answers one blocking question and is sized for one agent session.
+
+```md
+# Decision Map: <idea>
+
+## #1: <question>
+Blocked by: none | #n
+Type: Research | Prototype | Discuss
+
+### Question
+<the decision to resolve>
+
+### Answer
+<empty until resolved>
 ```
-1. User can save an existing card as a template (migration + model + one button)
-2. User can create a new card from a template (template picker + card creation)
-3. User can manage templates (list, edit, delete)
+
+Ticket types:
+- **Research** — external docs, APIs, prior art, codebase archaeology.
+- **Prototype** — runnable artifact to test behavior or UI.
+- **Discuss** — grilling conversation to resolve product/domain choices.
+
+Stop after creating the map unless the user explicitly asks to resolve ticket #1 now. Push back the fog one node at a time.
+
+Skip the map if grilling resolves all decisions in-session.
+
+## Phase 3 — Options
+
+Propose 2–3 concrete mechanisms, not vague directions. Compare against requirements with ✅ / ❌ only. If you cannot say yes, it is no until proven.
+
+Flag unknowns as ⚠️ and spike them before recommending if they could change the choice.
+
+Falsify before recommending:
+
+> This works IF ___.
+
+Then check the condition: run a throwaway script, estimate workload × cost, grep callers, inspect real config, or test the critical API.
+
+If all options pass but one feels wrong, you are missing a requirement. Add it.
+
+## Phase 4 — Recommend and Align
+
+Lead with your recommendation and why. Challenge the user’s preferred approach if investigation disproves it.
+
+Then wait for the decision. Do not proceed to implementation until the user chooses or explicitly accepts your recommendation.
+
+## Phase 5 — Slice for Implementation
+
+Slice vertically by observable capability, not by technical layer.
+
+Bad:
+1. database
+2. backend
+3. frontend
+4. tests
+
+Good:
+1. User can create X end-to-end.
+2. User can view/use X end-to-end.
+3. User can edit/delete/manage X end-to-end.
+
+Each slice includes data, logic, UI/API, tests, and acceptance proof. Each should be demoable or verifiable on its own.
+
+For multi-agent work, produce agent-ready slices/issues:
+
+```md
+## Slice: <observable capability>
+Goal: <what user/consumer can now do>
+Scope: <included>
+Acceptance proof:
+- [automated] ...
+- [manual] ...
+Dependencies: none | <slice ids>
+Out of scope: <explicit exclusions>
+Notes for agent: <patterns, seams, risks>
 ```
 
-Each slice cuts through all layers (data, logic, UI) and delivers a working increment.
+Make dependencies explicit. If agents will work independently, recommend fresh context per slice and a shared PRD/plan as the source of truth.
 
-## Scaling
+## Durable Decisions
 
-Not every task needs full shaping.
+While shaping, capture durable context when it crystallizes:
 
-| Signal | Response |
-|--------|----------|
-| Clear approach, < 3 files touched | State what "done" looks like + quick options + go. |
-| Design decisions needed, 3-10 files | Full phases. Requirements list + acceptance proof + options table. |
-| Architectural, > 10 files, multi-system | Full phases + written plan document + spikes for unknowns. |
+- Resolve overloaded domain terms before planning around them.
+- If the repo has a glossary/context doc, update it when terminology is settled.
+- Offer an ADR only when all three are true:
+  1. hard to reverse;
+  2. surprising without context;
+  3. real trade-off among alternatives.
 
-**Verification never scales down.** At every scale, state what "done" looks like before building. One sentence is enough: "I'll rename the method, update 2 call sites, and run the existing tests. If you have a page that uses this, reload it to confirm."
-
-When the user says "just do it" or the task is genuinely trivial, don't force process. Say what you'd do and ask for a thumbs up.
-
-## The Interview
-
-The interview is the core mechanism of shaping. It is how you and the user build shared understanding.
-
-### How to interview
-
-**Depth-first, not breadth-first.** Don't ask about scope, permissions, UI, AND error handling in one message. Pick the most foundational decision, resolve it completely, then move to the next.
-
-Design tree for "add card templates":
-```
-Templates
-├── What IS a template? → resolve first (everything else depends on this)
-│   ├── Content snapshot → how handle rich text?
-│   └── Structure only → what fields included?
-├── Scope → resolve second
-│   ├── Board-scoped → cross-board?
-│   └── Account-wide → permissions?
-└── Application → resolve third
-    ├── New card only
-    └── Replace existing → destructive?
-```
-
-**One decision per message.** "Should templates capture content (rich text, attachments) or just structure (field names, checklists)?" — not a paragraph with 5 sub-questions.
-
-**Multiple choice when options are clear.** "I see three ways to scope this: (A) board-level, (B) account-wide, (C) both with board override. Given your current permission model uses board membership, A would be simplest. What fits?"
-
-**Challenge with evidence.** Don't just accept the user's framing. "You mentioned a JSON column, but your cards use ActionText with embedded attachments — JSON would lose that. Should we explore approaches that preserve the existing content pipeline?"
-
-**Know when to stop.** When the requirements list is stable and you're asking questions that don't change it, stop interviewing and move to options.
-
-## Spikes
-
-When an option has a flagged unknown (⚠️), you need a spike before recommending it. No spike = guessing.
-
-A spike is NOT implementation. It's writing throwaway scripts, checking APIs, running code to verify assumptions. The output is knowledge: "yes, ActionText supports cloning with `record.dup`" or "no, the attachment system doesn't support cross-record references."
-
-**Spike against the actual code, not theoretical behavior.** Test the real method, the real config, the real runtime path. If your spike tests something different from what the code actually does, you'll eliminate valid options or keep broken ones.
-
-Spike when the unknown would change which option you pick. Don't spike things you'll figure out during implementation.
+Do not write ADRs for obvious or temporary choices.
 
 ## Completion
 
-When you finish implementation, your final message MUST include a **Verification** section. This is mandatory at every scale — from one-line changes to architectural work.
+A shaping session is complete when you have one of:
 
-Format:
-```
+- trivial change: done criteria + agreed approach;
+- shaped feature: requirements, acceptance proof, chosen option, vertical slices;
+- prototype: question answered + decision captured;
+- decision map: frontier identified with next ticket;
+- multi-agent plan: agent-ready slices with dependencies.
+
+Implementation completion still requires a final **Verification** section:
+
+```md
 ### Verification
-- [automated] All 10 tests pass, covering [specific behaviors]
-- [manual] Open /settings, toggle the feature flag, confirm the banner disappears
-- [manual] I can't run the app — after deploy, POST to /api/X and check the response includes Y
+- [automated] ...
+- [manual] ...
 ```
 
-Rules:
-- Every verification item is tagged `[automated]` or `[manual]`
-- At least one item must describe observable behavior beyond "tests pass"
-- If you can't verify something yourself, say what the user should check and how
-- If the change is purely internal (no UI, no API), describe what downstream behavior would break if your change were wrong
-
-"All tests pass" is necessary but never sufficient. A test can pass while the feature is broken if the test doesn't exercise the real integration.
+At least one item must be observable behavior beyond “tests pass”.
 
 ## Anti-Patterns
 
 | Anti-pattern | Fix |
 |---|---|
-| "Done" defined as "tests pass" | Name observable behavior: what does the user see/get? |
-| Can't verify but doesn't say so | "I can't run the app. After deploy, check X by doing Y." |
-| Requirements that are implementations ("use PostgreSQL") | Rewrite as outcome ("data persists across restarts") |
-| Single option presented as "the obvious approach" | Explore at least one alternative, even if to explain why it's worse |
-| Horizontal slicing ("Phase 1: database") | Each slice must have visible UI that can be demoed |
-| Interviewing from ignorance ("what framework do you use?") | Read the code first, then ask informed questions |
-| 10 questions in one message | One decision at a time, depth-first |
-| Deciding everything unilaterally | Present options, wait for user decision |
-| Shaping a trivial task | "I'd rename the method and update 2 call sites. Good?" |
-| Replicating existing patterns without evaluating correctness | "I see 10 tests mocking X. Do those mocks match reality? Let me verify against the real code." |
-| Claiming runtime behavior from reading only | Run it. One throwaway script beats reading 5 files. |
-| Recommending without falsifying | "What would prove this option wrong?" Check before presenting. |
-| Skipping spike on ⚠️ unknowns | If it would change your recommendation, spike it now. |
-| "Codebase is small, I can reason about it" | Small codebases have subtle behaviors too. Run it. |
-| "No time to verify, user is waiting" | A 10-second `node -e` is faster than a wrong recommendation. |
+| “Just build it and we’ll refine” | Shape the minimum decision first |
+| Asking what code can answer | Inspect code silently |
+| Ten questions at once | One foundational decision at a time |
+| Question without recommendation | Give your recommended answer |
+| Requirements describe implementation | Rewrite as outcome/constraint |
+| Fake plan despite unknowns | Create decision map |
+| Prose debate cannot settle behavior | Build throwaway prototype |
+| Prototype becomes production | Delete or absorb through normal implementation |
+| “Tests pass” as done | Name observable acceptance proof |
+| Horizontal slices | Slice vertical tracer bullets |
+| ADR for everything | ADR only hard-to-reverse + surprising + trade-off |
