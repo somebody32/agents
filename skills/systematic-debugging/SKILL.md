@@ -1,272 +1,195 @@
 ---
 name: systematic-debugging
-description: ALWAYS read before debugging any bug, test failure, or unexpected behavior. Use before reading source code to understand a problem. Use before proposing any fix. Use when investigating how existing code actually behaves at runtime. Use when modifying code you haven't run yet.
+description: Use when debugging any bug, failing test, flaky behavior, performance regression, unexpected runtime behavior, or reviewing an existing bug theory/postmortem. Use before reading source code to explain a symptom, before proposing a fix, or when tempted to patch from inspection.
 ---
 
 # Systematic Debugging
 
 ## Overview
 
-**Core principle:** Reproduce, observe, then fix. Never reason about bugs from code alone.
+**Core principle:** build a tight feedback loop, observe reality, trace to root cause, then fix. Reading code tells you what could happen. Running the system tells you what does happen.
 
-Random fixes waste time. Reading code to "understand" bugs is theorizing, not debugging. The system tells you what's wrong — if you run it.
-
-**Violating the letter of this process is violating the spirit of debugging.**
+Throwaway scripts, repro harnesses, temporary logs, and probes are exempt from TDD's production-code rule. They exist to be deleted. The eventual fix still needs a regression test when a correct seam exists.
 
 ## The Iron Law
 
 ```
-NO FIXES WITHOUT REPRODUCTION FIRST
+NO FIX, NO THEORY, NO SOURCE-DIVING BEFORE A TIGHT LOOP EXISTS.
 ```
 
-If you haven't reproduced the bug, you cannot propose fixes. Reading code is not reproducing.
+A **tight loop** is one command you have already run that can go red on the user's exact symptom and green after the fix. If you do not have it, your job is to create it — not to inspect files until a plausible patch appears.
 
-## Reproduce First
+Completion criterion for Phase 1:
 
-**The #1 debugging mistake: reading code instead of running code.**
+- **Red-capable:** exercises the real failing path and asserts the exact symptom, not merely "doesn't crash".
+- **Deterministic enough:** same verdict every run; for flakes, raise reproduction rate with loops/stress until debuggable.
+- **Fast:** seconds if possible; narrow setup until iteration is cheap.
+- **Agent-runnable:** one unattended command. Human-in-the-loop only through a scripted prompt/checklist.
 
-Reading code tells you what COULD happen. Running code tells you what DOES happen. Write a throwaway script, run it, observe.
+If you cannot build such a loop, stop and say what you tried. Ask for access, a captured artifact (HAR/log/core dump/screen recording), or permission to add temporary instrumentation. Do not proceed to theories without a loop.
 
-```
-WRONG:
-  1. Read error report
-  2. Read source file A (200 lines)
-  3. Read source file B (150 lines)
-  4. Read source file C (100 lines)
-  5. Think: "I see the issue — X calls Y with wrong param"
-  6. Propose fix
+## Phase 1 — Build the Feedback Loop
 
-RIGHT:
-  1. Read error report
-  2. Write 10-line script that triggers the bug
-  3. Run it → observe actual output
-  4. Add logging → run again → see WHERE it breaks
-  5. NOW read only the file that's actually broken
-  6. Fix
-```
+Try, roughly in this order:
 
-**Throwaway scripts are your primary tool.** They're cheap, fast, and tell you the truth. Code reading lies to you — you see what you expect, not what's there.
+1. Failing test at the highest seam that reaches the bug.
+2. `curl`/HTTP script against a running service.
+3. CLI invocation with fixture input and asserted output.
+4. Browser script for UI bugs: DOM, console, network assertions.
+5. Replay captured trace/request/event log through the real path.
+6. Throwaway harness that calls the failing code path directly.
+7. Property/fuzz/stress loop for "sometimes wrong" behavior.
+8. Bisection/differential loop: old vs new version, config A vs B, `git bisect run`.
+9. Human-in-the-loop script when clicking is unavoidable: tell the human exactly what to do and what verdict to report.
 
-### What a reproduction script looks like
+Treat the loop as a product. Once it exists, tighten it: cache setup, cut unrelated init, pin time/randomness, isolate filesystem/network, assert sharper symptoms.
 
-```typescript
-// throwaway.ts — DELETE AFTER DEBUGGING
-import { createCart, checkout } from './src/cart';
-
-const cart = createCart();
-cart.add({ name: 'Widget', price: 100 });
-cart.applyDiscount('10%');
-
-console.log('Subtotal:', cart.subtotal);
-console.log('Discount:', cart.discount);
-console.log('Tax:', cart.tax);
-console.log('Total:', cart.total);
-console.log('Expected:', 94.5);
-```
-
-Run it. The output tells you more than reading 500 lines of source.
-
-### When you can't write a script
-
-Some bugs need specific state, user interaction, or infrastructure. In these cases:
-- Add temporary logging/instrumentation to the real code path
-- Run the existing test that fails with `--verbose` or extra assertions
-- Use the debugger with a breakpoint at the symptom
-
-**The goal is always the same: observe actual runtime behavior, not theorize from source.**
-
-### Performance & Scaling
-
-For performance changes, the reproduction step is different: **estimate workload × per-unit cost before analyzing code correctness.** If the back-of-envelope math fails, the code doesn't matter.
-
-```
-"This optimization handles N items. How big is N in production?
- Current cost per item is X seconds. N × X = ??? vs timeout."
-```
-
-One multiplication can kill a premise that hours of code analysis won't question. Do the arithmetic first.
-
-## The Process
-
-### Phase 1: Reproduce & Observe
-
-1. **Read the error message** — fully. Stack trace, line numbers, error codes. Don't skim.
-
-2. **Write a reproduction** — throwaway script, failing test, or curl command. Whatever triggers the bug with minimal setup.
-
-3. **Run it and observe** — does it fail the way you expect? If not, your mental model is already wrong. Good — now you know.
-
-4. **Add instrumentation** — console.log at key points. What goes in? What comes out? Where does the value go wrong?
-
-5. **Narrow down** — bisect. Comment out half the logic. Does it still fail? Which half is broken?
-
-### Phase 2: Root Cause
-
-**Now — and only now — read the code.** You know WHERE it breaks from Phase 1. Read only that code.
-
-1. **Trace backward** — from the symptom to the source. Where does the bad value originate? See [root-cause-tracing.md](root-cause-tracing.md).
-
-2. **Check recent changes** — `git log --oneline -- <file>` on changed files. Read ALL commits, not keyword searches. The **direction** of changes tells you what the team has learned. Three commits increasing parallelism means "this workload doesn't fit in one job." Two hotfixes adding resets means "state leaks here."
-
-3. **Compare working vs broken** — find similar working code. What's different?
-
-4. **Falsify before committing** — State your theory as a testable prediction: **"This works IF ___."** Then find the ONE number that would kill it. Check that number FIRST.
-
-```
-WRONG:
-  "I found evidence supporting my theory → I'm done"
-
-RIGHT:
-  "This works IF precompute finishes within 1440s for 3000 employees."
-  "Current batches of 50 employees take 1433s. 3000/50 = 60x. Dead."
-  Check THAT before presenting anything.
-```
-
-### Phase 3: Fix & Verify
-
-1. **Write a failing test** that reproduces the bug (your throwaway script becomes a real test)
-
-2. **Form one hypothesis** — "X is the root cause because Y." Be specific.
-
-3. **Make the smallest possible change** — one variable at a time. Don't fix multiple things at once.
-
-4. **Verify** — test passes? All other tests still pass? Ship it.
-
-5. **Didn't work?** New hypothesis. Don't stack fixes. Return to Phase 1 with new information.
-
-## Multi-Component Systems
-
-When the system has multiple layers (API → service → database, CI → build → deploy):
-
-**Instrument every boundary BEFORE proposing fixes:**
+For test pollution, isolate the filesystem before checking. If the symptom is ".git appears in package root", do not run destructive cleanup in the real repo; run in a temp copy/worktree with the real `.git` excluded:
 
 ```bash
-# Layer 1: API
-echo "=== Request received: ==="
-echo "Headers: $HEADERS"
-echo "Body: $BODY"
-
-# Layer 2: Service
-echo "=== Service input: ==="
-echo "Parsed data: $DATA"
-
-# Layer 3: Database
-echo "=== Query: ==="
-echo "SQL: $QUERY"
-echo "Params: $PARAMS"
+src="$PWD"
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+rsync -a --exclude .git "$src"/ "$tmp"/
+cd "$tmp"
+npm test >/tmp/test.log 2>&1 || { cat /tmp/test.log; exit 2; }
+test ! -e .git || { echo "pollution: .git created"; cat /tmp/test.log; exit 1; }
 ```
 
-Run once. The output shows WHERE data goes wrong — which layer corrupts it. Then read only that layer's code.
+Once the suite-level loop is red, minimise to files/chunks/order in the same isolated environment. The point is automated isolation: one command in, pollution verdict out.
 
-### Victims vs Perpetrators in Cascading Failures
+## Phase 2 — Reproduce and Minimise
 
-**The component throwing the most errors is often the VICTIM, not the cause.**
+Run the loop and watch it fail. Confirm it is the user's bug, not a nearby failure you accidentally created.
 
-A slow query or resource hog doesn't throw errors — it silently consumes I/O, connections, or locks. The components that time out waiting for it fill your error logs. Error count ≠ causation.
+Then minimise. Remove inputs, callers, config, data, timing, and steps one at a time, re-running after every cut. Stop only when every remaining element is load-bearing: removing any one makes the loop green. A minimal repro shrinks the hypothesis space and becomes the regression test candidate.
 
-**To distinguish victims from perpetrators:**
-1. Which component is NEW or CHANGED? Perpetrators are usually recent changes.
-2. Which component is silent? Perpetrators often don't error — they just consume resources.
-3. What happens when the suspected perpetrator is removed/fixed? Compare before vs after.
+## Phase 3 — Find Root Cause
 
-```
-WRONG:
-  "Service A has 500 errors, Service B has 0 → A is the cause"
+Only now read code — and read the smallest area implicated by the loop.
 
-RIGHT:
-  "Service A has 500 errors, Service B has 0 → B may be silently
-   starving A. What changed recently? What happens if we fix B?"
-```
+Trace backward from symptom to source:
 
-## Reviewing Existing Analyses
+1. Where is the bad output/error observed?
+2. What immediate value/state caused it?
+3. Who called this with that value/state?
+4. Repeat until you find the original trigger.
 
-When a postmortem, bug report, or colleague already has a theory: **test THEIR hypothesis before building your own.**
+Never fix only where the error appears. Bugs often throw deep in the stack while the cause is five layers up: bad setup, wrong invariant, stale cache, missing validation, caller order, or cross-test pollution.
 
-1. **Extract testable claims** — what specifically does the analysis predict?
-2. **Check those predictions first** — does the timeline match? Does before/after the fix match?
-3. **Only then** look for what they missed.
+Before testing fixes, write **3–5 ranked hypotheses**. Each must be falsifiable:
 
-**Key anti-pattern:** "I found problem B" does NOT disprove "problem A was the cause." Finding a different issue doesn't invalidate the original analysis — you must directly test the original claim.
+> If X is the cause, then changing/observing Y will make the loop go green or Z will be true.
 
-```
-WRONG:
-  Read postmortem → find different problem → "postmortem was wrong"
+Single-hypothesis debugging anchors on the first plausible idea. Rank, then test one variable at a time.
 
-RIGHT:
-  Read postmortem → test their specific claims → confirmed or disproved
-  → THEN look for additional factors
+Check recent history on files you will rely on:
+
+```bash
+git log --oneline -- path/to/file
 ```
 
-## The 3-Fix Rule
+Read the direction of changes, not just keyword hits. Repeated commits increasing batching, adding resets, or widening guards are evidence of constraints the team already learned.
 
-Tried 3 fixes and none worked? **STOP.**
+## Special Cases
 
-This is not a bug — it's an architecture problem.
+### Performance regressions
 
-- Each fix reveals new coupling/shared state
-- Fixes require "massive refactoring"
-- Each fix creates new symptoms elsewhere
+Measure before reasoning about correctness. Establish workload × per-unit cost and compare with the real limit:
 
-**Discuss with user before attempting fix #4.** Question whether the pattern is fundamentally sound, not whether you need one more fix.
+```
+N items × current cost/item = total time / memory / queries
+```
+
+If the arithmetic cannot fit, code aesthetics are irrelevant. Use a timing harness, profiler, query plan, or production metric. Logs are usually the wrong first tool for performance.
+
+### Multi-component failures
+
+The loudest component is often the victim. A silent component may be starving queues, locks, DB connections, CPU, or I/O.
+
+Instrument boundaries before blaming:
+
+- request received → parsed service input → outbound call/query → response/result;
+- what changed recently;
+- what happens when the suspected silent perpetrator is removed, throttled, or fixed.
+
+Error count is not causation.
+
+### Existing analysis or postmortem
+
+Test their hypothesis before building yours. Extract their concrete predictions and check them directly. Finding another problem does not disprove the original theory.
+
+## Phase 4 — Instrument Carefully
+
+Each probe must distinguish hypotheses. Prefer debugger/REPL inspection when available; otherwise add targeted logs at boundaries. Never "log everything and grep".
+
+Tag every temporary log with a unique prefix:
+
+```ts
+console.error("[DEBUG-a4f2] before charge", { orderId, total, stack: new Error().stack });
+```
+
+Log before dangerous operations, include values that choose the branch, and include stack traces when caller order matters. Use `console.error` in tests if normal logging is suppressed.
+
+## Phase 5 — Fix with a Regression Test
+
+If a correct seam exists, turn the minimised repro into a failing regression test before changing production code. A correct seam exercises the real bug pattern as it occurs at the call site. If the only possible test is too shallow or mocks away the bug, do not add false confidence; document that the architecture lacks a good seam.
+
+Then:
+
+1. Watch the regression test fail for the expected reason.
+2. Make the smallest fix.
+3. Watch it pass.
+4. Re-run the original Phase 1 loop, not only the minimised test.
+5. Run affected tests/checks.
+
+If a fix fails, do not stack another fix on top. Revert or isolate it, update hypotheses, and test one new variable. After three failed fixes, stop: the pattern is probably architectural, not a one-line bug.
+
+## Phase 6 — Harden and Clean Up
+
+After root cause is known, make the bug structurally harder to reintroduce. For invalid data, validate at every layer it crosses:
+
+1. **Entry point:** reject bad external input early.
+2. **Use case/business rule:** assert invariants required for the operation.
+3. **Dangerous edge:** guard irreversible or context-sensitive operations (filesystem, money movement, deletes, network writes).
+4. **Observability:** keep durable diagnostic context only if it would help future incidents; remove throwaway logs.
+
+Cleanup checklist before declaring done:
+
+- Original loop is green.
+- Regression test passes, or lack of seam is explicitly reported.
+- All `[DEBUG-...]` logs/probes are removed: `grep -R "\[DEBUG-" .`.
+- Throwaway scripts/harnesses are deleted or clearly marked outside production paths.
+- The root cause is stated in the final answer/commit message.
 
 ## Red Flags — STOP
 
-If you catch yourself:
-- Reading 3+ source files before running anything
-- Saying "I think the issue is..." without reproduction
-- Proposing a fix from code reading alone
-- "Just try changing X and see"
-- Stacking multiple changes in one attempt
-- On fix #3 and about to try fix #4
-- "I don't fully understand but this might work"
-- Skipping the reproduction because "it's obvious from the code"
-- Building a counter-theory to an existing analysis without testing the original claim first
-- Using error counts to determine causation in a multi-component system
-- Declaring the loudest component "the cause" without checking for silent perpetrators
-- 30+ minutes deep in one analysis thread without checking basic constraints (timeouts, scale, resources)
-- Analyzing code correctness of a performance change without estimating workload × cost first
-- Searching git history for keywords instead of reading `git log --oneline -- <file>`
+- Reading 3+ source files before running anything.
+- Saying "I think the issue is…" without a red-capable loop.
+- Proposing a fix from inspection.
+- Skipping repro because the bug is "obvious" or urgent.
+- Stacking multiple changes in one attempt.
+- Debugging a flake with a loop that rarely fails.
+- Treating the throwing component as the cause without boundary evidence.
+- Analyzing performance without workload × cost math.
+- Disproving an existing analysis by finding a different problem instead of testing its predictions.
+- Searching git history for keywords instead of reading recent commits on the relevant files.
+- Trying fix #4 after three failed fixes.
 
-**All of these mean: STOP. Write a reproduction script first.**
+All of these mean: stop, build/tighten the loop, and observe reality.
 
 ## Common Rationalizations
 
 | Excuse | Reality |
-|--------|---------|
-| "I can see the bug in the code" | You see what you expect. Run it and prove it. |
-| "Writing a script takes too long" | 10 lines, 2 minutes. Reading 5 files takes longer and tells you less. |
-| "It's obvious, just need a quick fix" | Obvious bugs have non-obvious root causes. Reproduce first. |
-| "I'll read one more file to understand" | You're theorizing. Stop reading, start running. |
-| "Can't reproduce, too complex" | Add logging to the real code path. Observe, don't guess. |
-| "Just try this first, then investigate" | First fix sets the pattern. Reproduce first. |
-| "Issue is simple, don't need process" | Simple issues have root causes. Process is fast for simple bugs. |
-| "Emergency, no time for process" | Systematic is FASTER than guess-and-check thrashing. |
-| "One more fix attempt" (after 2+) | 3+ failures = architectural problem. Stop fixing. |
-| "The postmortem is wrong because I found a different problem" | Finding problem B doesn't disprove problem A. Test the original claim directly. |
-| "This component has the most errors, so it's the cause" | Loudest component is often the victim. Check what's silent and what changed. |
-| "I'll check scaling after I understand correctness" | If it can't finish, correctness doesn't matter. Check constraints first. |
-| "This analysis is complex, I need to finish it" | 30 min on one thread without checking basics = tunnel vision. Stop and check constraints. |
-
-## After the Fix
-
-Once root cause is fixed, harden:
-
-- **Validate at every layer** data passes through — make the bug structurally impossible. See [defense-in-depth.md](defense-in-depth.md).
-- **Keep the test** — your reproduction script becomes a regression test.
-- **Remove instrumentation** — clean up temporary logging.
-
-## When Stuck
-
-| Problem | Solution |
-|---------|----------|
-| Can't reproduce | Add logging to real code path, run in production-like env |
-| Reproduced but can't narrow down | Bisect — comment out half, does it still fail? |
-| Found symptom, not root cause | Trace backward through call chain. See [root-cause-tracing.md](root-cause-tracing.md) |
-| 3+ fixes failed | Architecture problem. Stop and discuss with user |
-| Truly environmental/timing | Document investigation, add monitoring, handle gracefully |
-
-## Supporting Files
-
-- **[root-cause-tracing.md](root-cause-tracing.md)** — Trace bugs backward through call stack to find the original trigger
-- **[defense-in-depth.md](defense-in-depth.md)** — Add validation at multiple layers after finding root cause
-- **[find-polluter.sh](find-polluter.sh)** — Bisection script to find which test creates unwanted state
+|---|---|
+| "I can see the bug in the code." | You see what you expect. Run it. |
+| "A script takes too long." | Ten lines beat reading five files. |
+| "It's a tiny fix." | Tiny fixes still need proof. |
+| "I'll read one more file first." | You're theorizing. Run the path. |
+| "Can't reproduce; too complex." | Add instrumentation to the real path or ask for artifacts. |
+| "Let's just try this." | Guess-and-check creates new symptoms. |
+| "The flaky rate is low." | Raise the reproduction rate before debugging. |
+| "The service with errors is the cause." | It may be the victim. Check boundaries. |
+| "Tests after are enough." | Tests-after prove less; write the regression before the fix when a correct seam exists. |
+| "No good test seam exists, so skip the point." | That is an architectural finding. Say it. |
+| "Emergency means no process." | Emergencies punish guesses hardest. A tight loop is the fast path. |
