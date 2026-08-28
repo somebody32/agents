@@ -1,0 +1,4 @@
+interface:
+  display_name: "Council Shape"
+  short_description: "Shape tasks and run council review"
+  default_prompt: "Use $council-shape to shape this task and pressure-test the plan with council."

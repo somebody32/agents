@@ -103,6 +103,15 @@ Test passes? You're testing existing behavior. Fix test.
 Test errors? Fix error, re-run until it fails correctly.
 No durable behavior change? Don't invent an absence test just to manufacture RED. Verify with search/static checks and run existing tests.
 
+Static wiring/registry/config membership is not durable behavior by itself. Don't add permanent tests whose only assertion is that a class, route, handler, export, model, or string is listed in a registry/manifest/config array.
+
+```ruby
+# ❌ Tests a static registry checklist item, not product behavior
+expect(ScopedModels.new.insert_only).to include(NewModel)
+```
+
+If that wiring matters, test the public behavior that would break when it is missing; otherwise verify the checklist item with review, search, build/boot checks, or existing infrastructure validation.
+
 ### 4. GREEN — Minimal Code
 
 Simplest code to make the test pass. Don't add features, don't refactor, don't "improve" beyond the test.
@@ -145,6 +154,7 @@ Next failing test for next behavior.
 [ ] Test would survive internal refactor
 [ ] Test will still matter after planned removals/refactors
 [ ] Not testing temporary scaffolding or code planned for deletion
+[ ] Not asserting direct membership in a static registry/config/route/export list
 [ ] Uses real collaborators; mocks only true external boundaries
 [ ] Watched test fail before implementing
 [ ] Failure was for expected reason
@@ -395,6 +405,7 @@ After a TDD cycle, look for: **duplication** → extract; **long methods** → p
 - Writing a test for code you plan to delete
 - Test name says "is not exposed", "does not exist", or "removed helper" for internals
 - Asserting internal file/class/helper/import absence instead of public behavior
+- Asserting direct membership in a static registry/config/route/export list instead of public behavior
 - Creating a failing test only by referencing doomed code
 - "I already manually tested it"
 - "It's un-automated-tested, not untested"
