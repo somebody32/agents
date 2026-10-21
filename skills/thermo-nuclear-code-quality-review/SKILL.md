@@ -49,6 +49,20 @@ Prioritize these over naming nits:
 7. **Non-atomic orchestration** — related updates can partially apply; independent async work is serialized in a way that makes the flow more brittle.
 8. **File sprawl** — giant files/components/modules that should be decomposed before more logic lands.
 
+## Evidence Bar for Failure Claims
+
+Structural findings stand on what the next reader or change pays. They need no runtime failure and must not borrow one to sound worse.
+
+A finding whose harm is a runtime failure (race, partial state, crash between steps, bad input, missing guard, wrong tenant) is Blocker/Major only if you can state all of:
+
+- **Trigger:** a real actor (user, internal staff, job, client app, external system) doing something they plausibly do, reaching the failing line. "A process crash between two statements" or "a malformed id from somewhere" is not a trigger unless you can show it happens.
+- **Defenses checked:** upstream validation, auth, types, DB constraints, atomic writes, status checks, queue uniqueness, retries/sweepers, single-actor ownership. If one already holds, the finding is at most a nit about how the code expresses it.
+- **Likelihood × impact:** how often (every call, daily, on a rare transient error, only when one person acts twice at the same instant) and what breaks (money, data, an irreversible action, a user-visible error, a wrong status code).
+
+Races need both actors named and shown to overlap in production. Validation gaps on inputs that only internal staff or our own client send are nits unless the bad value is plausible and the damage is real.
+
+Anything that fails the bar goes under **Unverified risks**: at most three, one line each, non-blocking, naming the unproven step. Reachable bugs on the normal path stay Blockers — the bar removes speculation, not real defects. A mismatch visible in the code (caller sends X, callee needs Y; wrong id passed; field never set) is a defect, not an unverified risk: do not demote it because some unseen code might compensate.
+
 ## Primary Questions
 
 For every meaningful change, ask:
@@ -93,12 +107,15 @@ REQUEST CHANGES | APPROVE WITH MAJOR COMMENTS | APPROVE
 
 ### 1. [Blocker|Major] <title>
 **Evidence:** <files / diff shape / line references if available>
-**Why this matters:** <maintainability risk>
+**Why this matters:** <maintainability risk; for failure claims: trigger, defenses checked, likelihood × impact>
 **Code-judo option:** <simpler framing, if visible>
 **Requested change:** <concrete action>
 
 ## Nits / minor comments
 <only if they do not distract from structural issues>
+
+## Unverified risks
+<max 3, one line each, non-blocking: the scenario and the unproven step>
 
 ## Approval bar
 <why this does or does not meet the bar>
@@ -116,6 +133,8 @@ Do **not** approve if any are true and not convincingly justified:
 - The branch relies on casts/optionality instead of a clear invariant.
 - The branch duplicates canonical helpers or puts logic in the wrong layer.
 - The branch technically passes tests but makes future correctness harder to reason about.
+
+Never block on a failure claim that does not clear the Evidence Bar.
 
 Approve only when there is no clear structural regression, no obvious missed simplification, and no maintainability blocker.
 
