@@ -12,10 +12,10 @@ Run `thermo-nuclear-code-quality-review` yourself and have each council member i
 Use exactly three members in addition to your own review:
 
 - Codex subagent: `gpt-6.1-sol` with `xhigh` reasoning.
-- pi/Fable: `anthropic/claude-fable-5-1` with `high` reasoning.
-- pi/Opus: `anthropic/claude-opus-5-5` with `xhigh` reasoning.
+- Claude/Fable: `fable` with `xhigh` effort, via the `claude` CLI.
+- Claude/Opus: `opus` with `xhigh` effort, via the `claude` CLI.
 
-Members must not delegate. Keep pi tools and skills enabled; do not use fast mode unless requested. Report unavailable members or missing skills instead of silently substituting or claiming a complete council review.
+Members must not delegate. Keep their other tools and skills enabled; do not use fast mode unless requested. Report unavailable members or missing skills instead of silently substituting or claiming a complete council review.
 
 ## Workflow
 
@@ -25,13 +25,15 @@ Members must not delegate. Keep pi tools and skills enabled; do not use fast mod
 4. Discuss important disagreements with the same members in their existing sessions. Provide evidence and counterexamples; convince or be convinced. Agreement is not proof. Stop when objections are resolved, remaining disagreement is explicit, or further discussion is unlikely to change the verdict.
 5. Deliver one consolidated review in the underlying skill's format. Include the reviewed scope, material disagreements and rejected claims, and validation limitations. Own the final verdict rather than pasting three reviews.
 
-Run pi from the reviewed repository with separate, task-specific sessions:
+Run the Claude members from the reviewed repository. Generate one session id per member per task with `uuidgen | tr A-Z a-z`, and paste the ids literally into every later command:
 
 ```bash
-pi -p --approve --session /tmp/council-review-<task>-fable.jsonl --model anthropic/claude-fable-5-1 --thinking high "Run thermo-nuclear-code-quality-review independently. <scope and context>. Do not delegate."
-pi -p --approve --session /tmp/council-review-<task>-opus.jsonl --model anthropic/claude-opus-5-5 --thinking xhigh "Run thermo-nuclear-code-quality-review independently. <scope and context>. Do not delegate."
+claude -p "Run thermo-nuclear-code-quality-review independently. <scope and context>. Do not delegate." --model fable --effort xhigh --session-id <fable-id> --disallowedTools "Edit,Write,NotebookEdit"
+claude -p "Run thermo-nuclear-code-quality-review independently. <scope and context>. Do not delegate." --model opus --effort xhigh --session-id <opus-id> --disallowedTools "Edit,Write,NotebookEdit"
 ```
 
-Reuse each member's session and model for follow-ups. Temporary council prompts and session files are allowed; the reviewed code stays read-only.
+For follow-ups, swap `--session-id <id>` for `--resume <id>` and keep every other flag. `--disallowedTools` does not carry over to a resumed session. Keep the prompt right after `-p`: `--disallowedTools` takes several values and swallows a prompt placed after it.
+
+Reuse each member's session and model for follow-ups. Temporary council prompts are allowed; the reviewed code stays read-only.
 
 For re-reviews, resolve the current target again, provide the changed evidence, and recheck previous findings rather than carrying them forward as facts. For multiple PRs, give a verdict per PR and check their interaction.
