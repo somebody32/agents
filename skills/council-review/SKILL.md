@@ -1,6 +1,6 @@
 ---
 name: council-review
-description: Run independent thermo-nuclear code-quality reviews with a three-member council, then verify and reconcile their findings. Use when the user asks for review with council, thermo-nuclear review with council, or a council re-review of a PR, branch, or working-tree change.
+description: Run independent thermo-nuclear code-quality reviews with a four-member council, then verify and reconcile their findings. Use when the user asks for review with council, thermo-nuclear review with council, or a council re-review of a PR, branch, or working-tree change.
 ---
 
 # Council Review
@@ -9,11 +9,14 @@ Run `thermo-nuclear-code-quality-review` yourself and have each council member i
 
 ## Council
 
-Use exactly three members in addition to your own review:
+Use exactly four members in addition to your own review:
 
-- Codex subagent: `gpt-6.1-sol` with `xhigh` reasoning.
+- Codex subagent: `gpt-6.2-sol` with `xhigh` reasoning.
+- Codex subagent: `gpt-6.2-astra` with `xhigh` reasoning, as its own subagent and session.
 - Claude/Fable: `fable` with `xhigh` effort, via the `claude` CLI.
 - Claude/Opus: `opus` with `xhigh` effort, via the `claude` CLI.
+
+Run each Codex member as its own subagent. If the subagent tool rejects a Codex model, run that member with `codex exec -m <model> -c model_reasoning_effort=xhigh -s read-only "<prompt>"` from the reviewed repository instead.
 
 Members must not delegate. Keep their other tools and skills enabled; do not use fast mode unless requested. Report unavailable members or missing skills instead of silently substituting or claiming a complete council review.
 
