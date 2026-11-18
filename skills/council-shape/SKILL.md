@@ -18,33 +18,48 @@ If the user persistently asks for additional agents, pause and explicitly double
 ## Workflow
 
 1. Gather enough source context to shape the task responsibly: current behavior, constraints, relevant files/docs, prior decisions, and known unknowns using Shaping skill.
-2. Draft a concise shape before asking the council. Include the goal, non-goals, proposed approach, alternatives rejected, risks, validation plan, and open questions.
-3. Ask all four council members after the initial shape exists:
-   - Codex/Sol and Codex/Astra: start two separate subagents, one on model `gpt-6.2-sol` and one on `gpt-6.2-astra`, both with `xhigh` reasoning. Ask each to critique the shape, find missing context, identify simpler alternatives, and call out implementation or validation risks. If the subagent tool rejects a Codex model, run that member with `codex exec -m <model> -c model_reasoning_effort=xhigh -s read-only "<prompt>"` from the repository being shaped instead.
+2. Draft a concise shape before asking the council. Include the goal, non-goals, proposed approach, alternatives rejected, risks, validation plan, and open questions. Keep it to yourself until step 3's second turn.
+3. Ask all four council members in two turns of the same session:
+   - Turn 1, blind: the problem brief below, without your shape or diagnosis. Each member proposes where and how they would solve it.
+   - Turn 2: your shape. Each member critiques it against their own turn-1 proposal.
+
+   Members:
+   - Codex/Sol and Codex/Astra: start two separate subagents, one on model `gpt-6.2-sol` and one on `gpt-6.2-astra`, both with `xhigh` reasoning. If the subagent tool rejects a Codex model, run that member with `codex exec -m <model> -c model_reasoning_effort=xhigh -s read-only "<prompt>"` from the repository being shaped instead, and send turn 2 with `codex exec resume <session id> "<prompt>"` (the id is printed at the start of the turn-1 output).
    - Claude/Fable and Claude/Opus: run the `claude` commands below.
 4. Never use fast mode for council shaping unless the user explicitly asks for fast mode. Do not disable tools or skills for the Claude members beyond the file-edit tools below.
 5. Use one session id per Claude member per task, generated with `uuidgen | tr A-Z a-z`. Reuse each member’s own session for follow-ups; never share a session between the two models.
-6. Compare council feedback against the source context. Accept feedback only when it is supported by evidence or exposes a real uncertainty. Reject or qualify feedback that depends on false assumptions, stale context, or invented constraints.
+6. Compare council feedback against the source context. Accept feedback only when it is supported by evidence or exposes a real uncertainty. Reject or qualify feedback that depends on false assumptions, stale context, or invented constraints. When a member's turn-1 proposal puts the fix in a different layer than your shape, or a constraint turns out to be the problem (even an approach the user or a handoff prescribed), that is the user's decision: never drop it as out of scope. Show it under "Open design decision" with what each option costs.
 7. Use back-and-forth in each Claude member’s existing session, and with each Codex subagent when practical, to resolve important disagreement. Either convince the council with concrete evidence or update the shape.
 8. Stop iterating when blockers are resolved, remaining disagreement is explicitly documented, or further council turns are unlikely to change the decision.
 
 ## Council Prompt
 
-Use a direct prompt with enough task-local context for independent critique:
+Describe the problem, not the solution. Give the user's goal and symptoms in the user's words, and tag every constraint with its source: *user said* (the user's own words), *verified external fact* (with the evidence), *prescribed by <who>* (a handoff, ticket, or earlier agent), or *author's choice*. Only the first two bind; members may challenge the rest.
+
+Turn 1:
 
 ```text
-I am shaping this task before implementation.
+I am shaping this task before implementation. I have not shown you my plan on purpose.
 
 Task:
-<user request>
+<user request, verbatim>
 
 Relevant context:
-<files, docs, behavior, constraints, evidence>
+<files, docs, observed behavior, evidence>
 
-Proposed shape:
-<goal, non-goals, approach, validation, risks>
+Constraints:
+<each one tagged: user said / verified external fact / prescribed by <who> / author's choice>
 
-Please critique this shape. Focus on missing context, hidden assumptions, simpler options, bad boundaries, implementation risks, and validation gaps. Be concrete and cite which claim depends on which evidence. Understand the bigger problem and the goal and come with the most lean solution possible.
+Find the root cause and say in which layer or system you would fix it, using only the binding constraints. Propose the leanest solution, its validation, and its risks. Be concrete and cite which claim depends on which evidence.
+```
+
+Turn 2:
+
+```text
+Here is my proposed shape:
+<goal, non-goals, approach, alternatives rejected, validation, risks>
+
+Critique it against your own proposal. Is it fixing the right problem in the right layer, or working around a cause elsewhere? Focus on missing context, hidden assumptions, simpler options, bad boundaries, implementation risks, and validation gaps.
 ```
 
 For both Claude members, run from the repository being shaped and paste each id literally:
@@ -75,5 +90,6 @@ Return the final shaped task with:
 
 - Recommended shape
 - Council feedback that changed the shape
+- Open design decisions for the user, with what each option costs
 - Council feedback rejected or left unresolved, with reasons
 - Validation plan or next implementation slice
